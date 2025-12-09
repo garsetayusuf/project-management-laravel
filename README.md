@@ -79,7 +79,6 @@ Before you begin, ensure you have the following installed:
 - **PHP 8.2** or higher
 - **Composer** (for PHP dependencies)
 - **PostgreSQL 14** or higher
-- **Git** (for version control)
 
 ---
 
@@ -88,7 +87,7 @@ Before you begin, ensure you have the following installed:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/garsetayusuf/project-management-laravel.git
 cd project-managemenet-laravel
 ```
 
