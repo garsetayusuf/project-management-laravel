@@ -18,11 +18,14 @@ it('user can register with valid credentials', function () {
 
     $response->assertCreated();
     $response->assertJsonStructure([
+        'status',
         'message',
-        'user' => ['id', 'name', 'email', 'created_at', 'updated_at'],
-        'access_token',
-        'refresh_token',
-        'expires_in',
+        'statusCode',
+        'data' => [
+            'user' => ['id', 'name', 'email', 'created_at', 'updated_at'],
+            'accessToken',
+            'refreshToken',
+        ],
     ]);
     expect(User::where('email', 'john@example.com')->exists())->toBeTrue();
 });
@@ -37,7 +40,7 @@ it('user cannot register with mismatched passwords', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('password');
+    expect($response->json('data.errors.password'))->not->toBeEmpty();
     expect(User::where('email', 'john@example.com')->exists())->toBeFalse();
 });
 
@@ -53,7 +56,7 @@ it('user cannot register with duplicate email', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('email');
+    expect($response->json('data.errors.email'))->not->toBeEmpty();
 });
 
 it('user cannot register with short password', function () {
@@ -66,7 +69,7 @@ it('user cannot register with short password', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('password');
+    expect($response->json('data.errors.password'))->not->toBeEmpty();
 });
 
 it('user cannot register without required fields', function () {
@@ -74,7 +77,7 @@ it('user cannot register without required fields', function () {
     $response = $this->postJson('/api/register', []);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors(['name', 'email', 'password']);
+    expect($response->json('data.errors'))->toHaveKeys(['name', 'email', 'password']);
 });
 
 it('registered user receives valid JWT token', function () {
@@ -86,7 +89,7 @@ it('registered user receives valid JWT token', function () {
         'password_confirmation' => 'password123',
     ]);
 
-    $accessToken = $response->json('access_token');
+    $accessToken = $response->json('data.accessToken');
     expect($accessToken)->not->toBeEmpty();
 
     $decoded = jwtService()->validateToken($accessToken);
@@ -110,13 +113,16 @@ it('user can login with correct credentials', function () {
 
     $response->assertOk();
     $response->assertJsonStructure([
+        'status',
         'message',
-        'user' => ['id', 'name', 'email'],
-        'access_token',
-        'refresh_token',
-        'expires_in',
+        'statusCode',
+        'data' => [
+            'user' => ['id', 'name', 'email'],
+            'accessToken',
+            'refreshToken',
+        ],
     ]);
-    expect($response->json('user.id'))->toBe($user->id);
+    expect($response->json('data.user.id'))->toBe($user->id);
 });
 
 it('user cannot login with wrong password', function () {
@@ -132,7 +138,7 @@ it('user cannot login with wrong password', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('credential');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
 });
 
 it('user cannot login with non-existent email', function () {
@@ -143,7 +149,7 @@ it('user cannot login with non-existent email', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('credential');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
 });
 
 it('user cannot login without required fields', function () {
@@ -151,7 +157,7 @@ it('user cannot login without required fields', function () {
     $response = $this->postJson('/api/login', []);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors(['email', 'password']);
+    expect($response->json('data.errors'))->toHaveKeys(['email', 'password']);
 });
 
 it('login returns valid JWT token', function () {
@@ -166,7 +172,7 @@ it('login returns valid JWT token', function () {
         'password' => 'password123',
     ]);
 
-    $accessToken = $response->json('access_token');
+    $accessToken = $response->json('data.accessToken');
     expect($accessToken)->not->toBeEmpty();
 
     $decoded = jwtService()->validateToken($accessToken);
@@ -187,6 +193,7 @@ it('authenticated user can logout', function () {
 
     $response->assertOk();
     $response->assertJsonPath('message', 'Logged out successfully');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
 });
 
 it('unauthenticated user cannot logout', function () {
@@ -208,10 +215,15 @@ it('authenticated user can get their info', function () {
 
     $response->assertOk();
     $response->assertJsonStructure([
-        'user' => ['id', 'name', 'email', 'created_at', 'updated_at'],
+        'status',
+        'message',
+        'statusCode',
+        'data' => [
+            'user' => ['id', 'name', 'email', 'created_at', 'updated_at'],
+        ],
     ]);
-    expect($response->json('user.id'))->toBe($user->id);
-    expect($response->json('user.email'))->toBe($user->email);
+    expect($response->json('data.user.id'))->toBe($user->id);
+    expect($response->json('data.user.email'))->toBe($user->email);
 });
 
 it('unauthenticated user cannot get user info', function () {

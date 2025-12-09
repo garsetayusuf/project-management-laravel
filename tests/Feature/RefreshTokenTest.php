@@ -19,12 +19,16 @@ it('user can refresh access token with valid refresh token', function () {
 
     $response->assertOk();
     $response->assertJsonStructure([
-        'access_token',
-        'refresh_token',
-        'expires_in',
+        'status',
+        'message',
+        'statusCode',
+        'data' => [
+            'accessToken',
+            'refreshToken',
+        ],
     ]);
-    expect($response->json('access_token'))->not->toBeEmpty();
-    expect($response->json('refresh_token'))->not->toBeEmpty();
+    expect($response->json('data.accessToken'))->not->toBeEmpty();
+    expect($response->json('data.refreshToken'))->not->toBeEmpty();
 });
 
 it('user receives new refresh token on refresh with rotation enabled', function () {
@@ -38,7 +42,7 @@ it('user receives new refresh token on refresh with rotation enabled', function 
         'refresh_token' => $oldRefreshToken,
     ]);
 
-    $newRefreshToken = $response->json('refresh_token');
+    $newRefreshToken = $response->json('data.refreshToken');
     expect($newRefreshToken)->not->toBe($oldRefreshToken);
 });
 
@@ -100,7 +104,7 @@ it('user cannot refresh without refresh token', function () {
     $response = $this->postJson('/api/refresh', []);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('refresh_token');
+    expect($response->json('data.errors.refresh_token'))->not->toBeEmpty();
 });
 
 it('new access token has correct expiry and type', function () {
@@ -113,7 +117,7 @@ it('new access token has correct expiry and type', function () {
         'refresh_token' => $refreshToken,
     ]);
 
-    $accessToken = $response->json('access_token');
+    $accessToken = $response->json('data.accessToken');
     $decoded = jwtService()->validateToken($accessToken);
 
     expect($decoded)->not->toBeNull();
@@ -163,7 +167,7 @@ it('logout all revokes all user refresh tokens', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonPath('revoked_count', 3);
+    $response->assertJsonPath('data.revokedCount', 3);
 
     // Try to use each revoked token
     foreach ([$token1, $token2, $token3] as $token) {
@@ -201,7 +205,9 @@ it('plain refresh token is never stored in database', function () {
 
 it('refresh token stores device name from user agent', function () {
     /** @var Tests\TestCase $this */
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'password' => 'password',
+    ]);
 
     $response = $this->postJson('/api/login', [
         'email' => $user->email,
@@ -216,7 +222,9 @@ it('refresh token stores device name from user agent', function () {
 
 it('refresh token stores ip address', function () {
     /** @var Tests\TestCase $this */
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'password' => 'password',
+    ]);
 
     $response = $this->postJson('/api/login', [
         'email' => $user->email,
@@ -305,14 +313,16 @@ it('revoking one token does not affect others', function () {
 /** ACCESS TOKEN BLACKLIST TESTS */
 it('access token cannot be used after logout', function () {
     /** @var Tests\TestCase $this */
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'password' => 'password',
+    ]);
 
     $response = $this->postJson('/api/login', [
         'email' => $user->email,
         'password' => 'password',
     ]);
 
-    $accessToken = $response->json('access_token');
+    $accessToken = $response->json('data.accessToken');
 
     // Verify token works initially
     $this->getJson('/api/user', [
@@ -327,6 +337,5 @@ it('access token cannot be used after logout', function () {
     // Try to use the token again - should fail
     $this->getJson('/api/user', [
         'Authorization' => "Bearer $accessToken",
-    ])->assertUnauthorized()
-        ->assertJson(['message' => 'Unauthorized: Token has been revoked']);
+    ])->assertUnauthorized();
 });

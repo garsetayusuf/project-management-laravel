@@ -25,7 +25,7 @@ it('user can view their own project', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonPath('project.id', $project->id);
+    $response->assertJsonPath('data.project.id', $project->id);
 });
 
 it('user cannot view another users project', function () {
@@ -119,7 +119,7 @@ it('user can view their own task', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonPath('task.id', $task->id);
+    $response->assertJsonPath('data.task.id', $task->id);
 });
 
 it('user cannot view another users task', function () {
@@ -256,7 +256,7 @@ it('user only sees their own projects', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(3, 'projects');
+    $response->assertJsonCount(3, 'data.projects');
 });
 
 it('user only sees their own tasks', function () {
@@ -274,5 +274,5 @@ it('user only sees their own tasks', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(3, 'tasks');
+    $response->assertJsonCount(3, 'data.tasks');
 });

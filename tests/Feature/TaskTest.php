@@ -18,7 +18,8 @@ it('user can list their own tasks', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(3, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(3, 'data.tasks');
 });
 
 it('user only sees their own tasks in list', function () {
@@ -34,7 +35,8 @@ it('user only sees their own tasks in list', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(2, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(2, 'data.tasks');
 });
 
 it('user cannot list tasks without authentication', function () {
@@ -52,7 +54,8 @@ it('empty task list returns empty array', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(0, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(0, 'data.tasks');
 });
 
 it('user can filter tasks by project_id', function () {
@@ -67,7 +70,8 @@ it('user can filter tasks by project_id', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(2, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(2, 'data.tasks');
 });
 
 it('user can filter tasks by status', function () {
@@ -81,7 +85,8 @@ it('user can filter tasks by status', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(1, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(1, 'data.tasks');
 });
 
 it('user can filter tasks by priority', function () {
@@ -95,7 +100,8 @@ it('user can filter tasks by priority', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(1, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(1, 'data.tasks');
 });
 
 it('user can filter tasks by multiple filters', function () {
@@ -110,7 +116,8 @@ it('user can filter tasks by multiple filters', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(1, 'tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(1, 'data.tasks');
 });
 
 /** CREATE TASK TESTS */
@@ -126,10 +133,15 @@ it('user can create task in their own project', function () {
     ]);
 
     $response->assertCreated();
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
     $response->assertJsonPath('message', 'Task created successfully');
     $response->assertJsonStructure([
+        'status',
         'message',
-        'task' => ['id', 'project_id', 'user_id', 'title', 'description'],
+        'statusCode',
+        'data' => [
+            'task' => ['id', 'project_id', 'user_id', 'title', 'description'],
+        ],
     ]);
     expect(Task::where('title', 'My Task')->exists())->toBeTrue();
 });
@@ -237,7 +249,8 @@ it('user cannot create task without required fields', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors(['project_id', 'title', 'description']);
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data' => ['errors']]);
+    expect($response->json('data.errors'))->toHaveKeys(['project_id', 'title', 'description']);
 });
 
 it('user cannot create task in another users project', function () {
@@ -271,7 +284,8 @@ it('user cannot create task with invalid status', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('status');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data' => ['errors']]);
+    expect($response->json('data.errors.status'))->not->toBeEmpty();
 });
 
 it('user cannot create task with invalid priority', function () {
@@ -287,7 +301,8 @@ it('user cannot create task with invalid priority', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('priority');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data' => ['errors']]);
+    expect($response->json('data.errors.priority'))->not->toBeEmpty();
 });
 
 it('user cannot create task with past due_date', function () {
@@ -304,7 +319,8 @@ it('user cannot create task with past due_date', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('due_date');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data' => ['errors']]);
+    expect($response->json('data.errors.due_date'))->not->toBeEmpty();
 });
 
 /** SHOW TASK TESTS */
@@ -318,8 +334,9 @@ it('user can view their own task', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonPath('task.id', $task->id);
-    $response->assertJsonPath('task.title', $task->title);
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonPath('data.task.id', $task->id);
+    $response->assertJsonPath('data.task.title', $task->title);
 });
 
 it('user cannot view another users task', function () {
@@ -362,6 +379,7 @@ it('user can update their own task', function () {
     ]);
 
     $response->assertOk();
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
     $response->assertJsonPath('message', 'Task updated successfully');
     expect($task->fresh()->title)->toBe('Updated Task');
     expect($task->fresh()->status)->toBe('in_progress');
@@ -429,6 +447,7 @@ it('user can delete their own task', function () {
     ]);
 
     $response->assertOk();
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
     $response->assertJsonPath('message', 'Task deleted successfully');
     expect(Task::find($taskId))->toBeNull();
 });

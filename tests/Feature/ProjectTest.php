@@ -17,7 +17,8 @@ it('user can list their own projects', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(3, 'projects');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(3, 'data.projects');
 });
 
 it('user only sees their own projects in list', function () {
@@ -32,7 +33,8 @@ it('user only sees their own projects in list', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(2, 'projects');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(2, 'data.projects');
 });
 
 it('user cannot list projects without authentication', function () {
@@ -51,7 +53,8 @@ it('empty project list returns empty array', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(0, 'projects');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(0, 'data.projects');
 });
 
 it('project list includes task count', function () {
@@ -69,7 +72,8 @@ it('project list includes task count', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonPath('projects.0.tasks_count', 3);
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonPath('data.projects.0.tasks_count', 3);
 });
 
 /** CREATE PROJECT TESTS */
@@ -84,10 +88,15 @@ it('user can create project with required fields', function () {
     ]);
 
     $response->assertCreated();
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
     $response->assertJsonPath('message', 'Project created successfully');
     $response->assertJsonStructure([
+        'status',
         'message',
-        'project' => ['id', 'user_id', 'name', 'created_at', 'updated_at'],
+        'statusCode',
+        'data' => [
+            'project' => ['id', 'user_id', 'name', 'created_at', 'updated_at'],
+        ],
     ]);
     expect(Project::where('name', 'My Project')->exists())->toBeTrue();
 });
@@ -130,7 +139,7 @@ it('user cannot create project without name', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('name');
+    expect($response->json('data.errors.name'))->not->toBeEmpty();
 });
 
 it('user cannot create project with long name', function () {
@@ -145,7 +154,7 @@ it('user cannot create project with long name', function () {
     ]);
 
     $response->assertUnprocessable();
-    $response->assertJsonValidationErrors('name');
+    expect($response->json('data.errors.name'))->not->toBeEmpty();
 });
 
 it('user cannot create project without authentication', function () {
@@ -168,8 +177,9 @@ it('user can view their own project', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonPath('project.id', $project->id);
-    $response->assertJsonPath('project.name', $project->name);
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonPath('data.project.id', $project->id);
+    $response->assertJsonPath('data.project.name', $project->name);
 });
 
 it('user cannot view another users project', function () {
@@ -210,7 +220,8 @@ it('project view includes tasks', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJsonCount(2, 'project.tasks');
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
+    $response->assertJsonCount(2, 'data.project.tasks');
 });
 
 /** UPDATE PROJECT TESTS */
@@ -227,6 +238,7 @@ it('user can update their own project', function () {
     ]);
 
     $response->assertOk();
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
     $response->assertJsonPath('message', 'Project updated successfully');
     expect($project->fresh()->name)->toBe('Updated Name');
     expect($project->fresh()->description)->toBe('Updated description');
@@ -290,6 +302,7 @@ it('user can delete their own project', function () {
     ]);
 
     $response->assertOk();
+    $response->assertJsonStructure(['status', 'message', 'statusCode', 'data']);
     $response->assertJsonPath('message', 'Project deleted successfully');
     expect(Project::find($projectId))->toBeNull();
 });
