@@ -23,7 +23,11 @@ class JWTAuthenticate
 
         if (! $token) {
             return response()->json(data: [
-                'message' => 'Unauthorized: Missing or invalid token',
+                'status' => 'error',
+                'data' => null,
+                'message' => 'Token missing, invalid, or expired',
+                'error' => 'Unauthorized',
+                'statusCode' => 401,
             ], status: 401);
         }
 
@@ -31,17 +35,25 @@ class JWTAuthenticate
 
         if (! $user) {
             return response()->json(data: [
-                'message' => 'Unauthorized: Invalid or expired token',
+                'status' => 'error',
+                'data' => null,
+                'message' => 'Token missing, invalid, or expired',
+                'error' => 'Unauthorized',
+                'statusCode' => 401,
             ], status: 401);
         }
 
         if ($this->jwtService->isAccessTokenBlacklisted($token)) {
             return response()->json(data: [
-                'message' => 'Unauthorized: Token has been revoked',
+                'status' => 'error',
+                'data' => null,
+                'message' => 'Token missing, invalid, or expired',
+                'error' => 'Unauthorized',
+                'statusCode' => 401,
             ], status: 401);
         }
 
-        $request->setUserResolver(callback: fn() => $user);
+        $request->setUserResolver(callback: fn () => $user);
         Auth::setUser($user);
 
         return $next($request);

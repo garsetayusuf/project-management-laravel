@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Project\StoreProjectRequest;
+use App\Http\Requests\Project\UpdateProjectRequest;
+use App\Http\Traits\ApiResponse;
 use App\Models\Project;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -10,7 +13,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProjectController extends Controller
 {
-    use AuthorizesRequests;
+    use ApiResponse, AuthorizesRequests;
 
     /**
      * Display a listing of the user's projects
@@ -29,17 +32,22 @@ class ProjectController extends Controller
      *
      *         @OA\JsonContent(
      *
-     *             @OA\Property(property="projects", type="array",
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Projects retrieved successfully"),
+     *             @OA\Property(property="statusCode", type="integer", example=200),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="projects", type="array",
      *
-     *                 @OA\Items(type="object",
+     *                     @OA\Items(type="object",
      *
-     *                     @OA\Property(property="id", type="integer", example=1),
-     *                     @OA\Property(property="user_id", type="integer", example=1),
-     *                     @OA\Property(property="name", type="string", example="My Project"),
-     *                     @OA\Property(property="description", type="string", example="Project description"),
-     *                     @OA\Property(property="tasks_count", type="integer", example=5),
-     *                     @OA\Property(property="created_at", type="string", format="date-time"),
-     *                     @OA\Property(property="updated_at", type="string", format="date-time")
+     *                         @OA\Property(property="id", type="integer", example=1),
+     *                         @OA\Property(property="userId", type="integer", example=1),
+     *                         @OA\Property(property="name", type="string", example="My Project"),
+     *                         @OA\Property(property="description", type="string", example="Project description"),
+     *                         @OA\Property(property="tasksCount", type="integer", example=5),
+     *                         @OA\Property(property="created_at", type="string", format="date-time"),
+     *                         @OA\Property(property="updated_at", type="string", format="date-time")
+     *                     )
      *                 )
      *             )
      *         )
@@ -47,7 +55,16 @@ class ProjectController extends Controller
      *
      *     @OA\Response(
      *         response=401,
-     *         description="Unauthorized"
+     *         description="Unauthorized",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Token missing, invalid, or expired"),
+     *             @OA\Property(property="error", type="string", example="Unauthorized"),
+     *             @OA\Property(property="statusCode", type="integer", example=401),
+     *             @OA\Property(property="data", type="object")
+     *         )
      *     )
      * )
      */
@@ -58,9 +75,7 @@ class ProjectController extends Controller
             ->latest()
             ->get();
 
-        return response()->json(data: [
-            'projects' => $projects,
-        ]);
+        return $this->sendSuccess(data: ['projects' => $projects], message: 'Projects retrieved successfully');
     }
 
     /**
@@ -91,28 +106,49 @@ class ProjectController extends Controller
      *
      *         @OA\JsonContent(
      *
+     *             @OA\Property(property="status", type="string", example="success"),
      *             @OA\Property(property="message", type="string", example="Project created successfully"),
-     *             @OA\Property(property="project", type="object")
+     *             @OA\Property(property="statusCode", type="integer", example=201),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="project", type="object")
+     *             )
      *         )
      *     ),
      *
-     *     @OA\Response(response=401, description="Unauthorized"),
-     *     @OA\Response(response=422, description="Validation error")
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Token missing, invalid, or expired"),
+     *             @OA\Property(property="error", type="string", example="Unauthorized"),
+     *             @OA\Property(property="statusCode", type="integer", example=401),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Validation failed"),
+     *             @OA\Property(property="error", type="string", example="ValidationError"),
+     *             @OA\Property(property="statusCode", type="integer", example=422),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
      * )
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreProjectRequest $request): JsonResponse
     {
-        $validated = $request->validate(rules: [
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-        ]);
+        $project = $request->user()->projects()->create($request->validated());
 
-        $project = $request->user()->projects()->create($validated);
-
-        return response()->json(data: [
-            'message' => 'Project created successfully',
-            'project' => $project->load('tasks'),
-        ], status: 201);
+        return $this->sendSuccess(data: ['project' => $project->load('tasks')], message: 'Project created successfully', statusCode: 201);
     }
 
     /**
@@ -139,21 +175,65 @@ class ProjectController extends Controller
      *         response=200,
      *         description="Project retrieved successfully",
      *
-     *         @OA\JsonContent(@OA\Property(property="project", type="object"))
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Project retrieved successfully"),
+     *             @OA\Property(property="statusCode", type="integer", example=200),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="project", type="object")
+     *             )
+     *         )
      *     ),
      *
-     *     @OA\Response(response=401, description="Unauthorized"),
-     *     @OA\Response(response=403, description="Forbidden - not your project"),
-     *     @OA\Response(response=404, description="Project not found")
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Token missing, invalid, or expired"),
+     *             @OA\Property(property="error", type="string", example="Unauthorized"),
+     *             @OA\Property(property="statusCode", type="integer", example=401),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden - not your project",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="You do not have permission to perform this action"),
+     *             @OA\Property(property="error", type="string", example="Forbidden"),
+     *             @OA\Property(property="statusCode", type="integer", example=403),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Project not found",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Resource not found"),
+     *             @OA\Property(property="error", type="string", example="NotFound"),
+     *             @OA\Property(property="statusCode", type="integer", example=404),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
      * )
      */
     public function show(Request $request, Project $project): JsonResponse
     {
         $this->authorize(ability: 'view', arguments: $project);
 
-        return response()->json(data: [
-            'project' => $project->load(relations: 'tasks'),
-        ]);
+        return $this->sendSuccess(data: ['project' => $project->load(relations: 'tasks')], message: 'Project retrieved successfully');
     }
 
     /**
@@ -188,29 +268,67 @@ class ProjectController extends Controller
      *         response=200,
      *         description="Project updated successfully",
      *
-     *         @OA\JsonContent(@OA\Property(property="project", type="object"))
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Project updated successfully"),
+     *             @OA\Property(property="statusCode", type="integer", example=200),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="project", type="object")
+     *             )
+     *         )
      *     ),
      *
-     *     @OA\Response(response=401, description="Unauthorized"),
-     *     @OA\Response(response=403, description="Forbidden"),
-     *     @OA\Response(response=404, description="Not found")
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Token missing, invalid, or expired"),
+     *             @OA\Property(property="error", type="string", example="Unauthorized"),
+     *             @OA\Property(property="statusCode", type="integer", example=401),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="You do not have permission to perform this action"),
+     *             @OA\Property(property="error", type="string", example="Forbidden"),
+     *             @OA\Property(property="statusCode", type="integer", example=403),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Not found",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Resource not found"),
+     *             @OA\Property(property="error", type="string", example="NotFound"),
+     *             @OA\Property(property="statusCode", type="integer", example=404),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
      * )
      */
-    public function update(Request $request, Project $project): JsonResponse
+    public function update(UpdateProjectRequest $request, Project $project): JsonResponse
     {
         $this->authorize(ability: 'update', arguments: $project);
 
-        $validated = $request->validate(rules: [
-            'name' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-        ]);
+        $project->update(attributes: $request->validated());
 
-        $project->update(attributes: $validated);
-
-        return response()->json(data: [
-            'message' => 'Project updated successfully',
-            'project' => $project->fresh(with: ['tasks']),
-        ]);
+        return $this->sendSuccess(data: ['project' => $project->fresh(with: ['tasks'])], message: 'Project updated successfully');
     }
 
     /**
@@ -236,12 +354,56 @@ class ProjectController extends Controller
      *         response=200,
      *         description="Project deleted successfully",
      *
-     *         @OA\JsonContent(@OA\Property(property="message", type="string", example="Project deleted successfully"))
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="message", type="string", example="Project deleted successfully"),
+     *             @OA\Property(property="statusCode", type="integer", example=200),
+     *             @OA\Property(property="data", type="object")
+     *         )
      *     ),
      *
-     *     @OA\Response(response=401, description="Unauthorized"),
-     *     @OA\Response(response=403, description="Forbidden"),
-     *     @OA\Response(response=404, description="Not found")
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthorized",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Token missing, invalid, or expired"),
+     *             @OA\Property(property="error", type="string", example="Unauthorized"),
+     *             @OA\Property(property="statusCode", type="integer", example=401),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=403,
+     *         description="Forbidden",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="You do not have permission to perform this action"),
+     *             @OA\Property(property="error", type="string", example="Forbidden"),
+     *             @OA\Property(property="statusCode", type="integer", example=403),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *
+     *     @OA\Response(
+     *         response=404,
+     *         description="Not found",
+     *
+     *         @OA\JsonContent(
+     *
+     *             @OA\Property(property="status", type="string", example="error"),
+     *             @OA\Property(property="message", type="string", example="Resource not found"),
+     *             @OA\Property(property="error", type="string", example="NotFound"),
+     *             @OA\Property(property="statusCode", type="integer", example=404),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
      * )
      */
     public function destroy(Request $request, Project $project): JsonResponse
@@ -250,8 +412,6 @@ class ProjectController extends Controller
 
         $project->delete();
 
-        return response()->json(data: [
-            'message' => 'Project deleted successfully',
-        ]);
+        return $this->sendSuccess(message: 'Project deleted successfully');
     }
 }

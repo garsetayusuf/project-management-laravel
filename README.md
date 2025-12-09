@@ -12,6 +12,7 @@
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
 - [Environment Configuration](#environment-configuration)
+- [API Response Structure](#api-response-structure)
 - [Database Schema](#database-schema)
 - [Authentication Flow](#authentication-flow)
 - [Testing](#testing)
@@ -61,6 +62,13 @@
   - Swagger/OpenAPI documentation
   - Feature and integration test coverage
   - Authorization policy tests
+  - Standardized API response structure with error codes
+
+- **API Response Standardization**
+  - Consistent JSON response format across all endpoints
+  - Unified error handling with validation error details
+  - Proper HTTP status codes (200, 201, 401, 403, 404, 422)
+  - camelCase field naming convention
 
 ---
 
@@ -201,6 +209,158 @@ LOG_LEVEL=debug
 
 ---
 
+## API Response Structure
+
+All API endpoints return a standardized JSON response format for consistency and predictability.
+
+### Success Response (HTTP 200, 201)
+
+```json
+{
+  "status": "success",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "created_at": "2024-12-09T10:30:00Z",
+      "updated_at": "2024-12-09T10:30:00Z"
+    },
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "abc123def456ghijklmnop...",
+    "projects": [...],
+    "tasks": [...]
+  },
+  "message": "User registered successfully",
+  "statusCode": 201
+}
+```
+
+### Error Response (HTTP 4xx, 5xx)
+
+#### Validation Error (422)
+
+```json
+{
+  "status": "error",
+  "data": {
+    "errors": {
+      "email": ["The email field is required."],
+      "password": ["The password must be at least 8 characters."]
+    }
+  },
+  "message": "Validation failed",
+  "error": "ValidationError",
+  "statusCode": 422
+}
+```
+
+#### Authentication Error (401)
+
+```json
+{
+  "status": "error",
+  "data": null,
+  "message": "Token missing, invalid, or expired",
+  "error": "Unauthorized",
+  "statusCode": 401
+}
+```
+
+#### Authorization Error (403)
+
+```json
+{
+  "status": "error",
+  "data": null,
+  "message": "You do not have permission to perform this action",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+```
+
+#### Not Found Error (404)
+
+```json
+{
+  "status": "error",
+  "data": null,
+  "message": "Resource not found",
+  "error": "NotFound",
+  "statusCode": 404
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Either `"success"` or `"error"` |
+| `data` | object\|null | Response data or validation errors; `null` for error responses without data |
+| `message` | string | Human-readable message describing the operation result |
+| `error` | string | Error code for programmatic handling (e.g., `"Unauthorized"`, `"ValidationError"`) |
+| `statusCode` | integer | HTTP status code (mirrors HTTP header) |
+
+### Data Structure Examples
+
+**Registration/Login Response:**
+
+```json
+{
+  "accessToken": "JWT token string",
+  "refreshToken": "Random token string",
+  "user": { user object }
+}
+```
+
+**Project Listing Response:**
+
+```json
+{
+  "projects": [
+    {
+      "id": 1,
+      "name": "Project Name",
+      "description": "Project description",
+      "user_id": 1,
+      "tasks_count": 5,
+      "created_at": "2024-12-09T10:30:00Z",
+      "updated_at": "2024-12-09T10:30:00Z"
+    }
+  ]
+}
+```
+
+**Task Listing Response:**
+
+```json
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Task title",
+      "description": "Task description",
+      "status": "pending",
+      "priority": "high",
+      "due_date": "2024-12-31",
+      "project_id": 1,
+      "user_id": 1,
+      "created_at": "2024-12-09T10:30:00Z",
+      "updated_at": "2024-12-09T10:30:00Z"
+    }
+  ]
+}
+```
+
+### Implementation Details
+
+- All responses use **camelCase** for field names (e.g., `accessToken`, `refreshToken`, `tasksCount`)
+- Validation errors are wrapped in `data.errors` object with field names as keys
+- Empty responses still include all four fields (status, data, message, statusCode)
+- Timestamps are in ISO 8601 format (UTC)
+
+---
+
 ## Database Schema
 
 ### Entity Relationship Diagram
@@ -213,7 +373,7 @@ users (1) ─────────── (many) projects
   └─────────────────────────── (many) tasks
 
 users
-├─ id (PK)
+├─ id (PK, UUID)
 ├─ name
 ├─ email (UNIQUE)
 ├─ password
@@ -221,16 +381,16 @@ users
 └─ timestamps
 
 projects
-├─ id (PK)
-├─ user_id (FK → users.id)
+├─ id (PK, auto-increment bigint)
+├─ user_id (FK → users.id, UUID)
 ├─ name
 ├─ description
 └─ timestamps
 
 tasks
-├─ id (PK)
-├─ user_id (FK → users.id)
-├─ project_id (FK → projects.id)
+├─ id (PK, auto-increment bigint)
+├─ project_id (FK → projects.id, bigint)
+├─ user_id (FK → users.id, UUID)
 ├─ title
 ├─ description
 ├─ status (enum: pending, in_progress, done)
@@ -239,8 +399,8 @@ tasks
 └─ timestamps
 
 refresh_tokens
-├─ id (PK)
-├─ user_id (FK → users.id)
+├─ id (PK, UUID)
+├─ user_id (FK → users.id, UUID)
 ├─ token_hash (UNIQUE, SHA-256 hashed)
 ├─ device_name
 ├─ ip_address
@@ -250,12 +410,30 @@ refresh_tokens
 └─ timestamps
 
 token_blacklist
-├─ id (PK)
-├─ user_id (FK → users.id)
+├─ id (PK, UUID)
+├─ user_id (FK → users.id, UUID)
 ├─ token (text, full JWT)
 ├─ expires_at
 └─ timestamps
 ```
+
+### ID Column Strategy
+
+The application uses a strategic mix of UUID and auto-increment primary keys:
+
+| Table | ID Type | Reason |
+|-------|---------|--------|
+| **users** | UUID | User identification in distributed systems, privacy, and API exposure safety |
+| **projects** | Auto-increment | Sequential IDs for user-facing references and better database indexing performance |
+| **tasks** | Auto-increment | Simple, predictable IDs for task management within projects |
+| **refresh_tokens** | UUID | Security and uniqueness for token identification |
+| **token_blacklist** | UUID | Consistency with token management system |
+
+- **UUID fields** use `CHAR(36)` storage and are suitable for sensitive operations
+- **Auto-increment fields** are optimized for performance and are safe within user isolation context
+- **Foreign keys** maintain appropriate type relationships (UUID FK → UUID PK, bigint FK → bigint PK)
+
+---
 
 ## Authentication Flow
 

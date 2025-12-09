@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\RefreshToken;
+use App\Models\TokenBlacklist;
 use App\Models\User;
 use Firebase\JWT\BeforeValidException;
 use Firebase\JWT\ExpiredException;
@@ -53,9 +54,6 @@ class JWTService
         ];
     }
 
-    /**
-     * Validate refresh token from database
-     */
     public function validateRefreshToken(string $token): ?RefreshToken
     {
         $tokenHash = hash('sha256', $token);
@@ -65,15 +63,11 @@ class JWTService
             ->first();
     }
 
-    /**
-     * Validate and decode a JWT access token
-     */
     public function validateToken(string $token): ?object
     {
         try {
             return JWT::decode($token, new Key(config('jwt.secret'), config('jwt.algo', 'HS256')));
         } catch (ExpiredException $e) {
-            // Token has expired
             return null;
         } catch (SignatureInvalidException $e) {
             // Invalid signature
@@ -92,7 +86,7 @@ class JWTService
      */
     public function isAccessTokenBlacklisted(string $token): bool
     {
-        return \App\Models\TokenBlacklist::isBlacklisted($token);
+        return TokenBlacklist::isBlacklisted($token);
     }
 
     /**
