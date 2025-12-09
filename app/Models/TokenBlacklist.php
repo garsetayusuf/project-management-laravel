@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
 class TokenBlacklist extends Model
 {
+    use HasUuids;
+
     protected $table = 'token_blacklist';
 
     protected $fillable = [

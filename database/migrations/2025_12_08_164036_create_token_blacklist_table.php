@@ -12,13 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('token_blacklist', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->uuid('id')->primary();
+            $table->foreignUuid('user_id')->constrained()->onDelete('cascade');
             $table->text('token');
             $table->timestamp('expires_at');
             $table->timestamps();
 
-            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
             $table->index('user_id');
             $table->index('expires_at');
         });
